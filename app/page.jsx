@@ -6,15 +6,6 @@ import { useState, useEffect, useCallback } from "react";
 const API_BASE_URL = "https://api.jikan.moe/v4";
 const API_DELAY = 1000; // 1 second delay between requests
 
-const ANIME_ENDPOINTS = {
-  recommended: `${API_BASE_URL}/recommendations/anime`,
-  popular: `${API_BASE_URL}/top/anime?filter=bypopularity`,
-  top: `${API_BASE_URL}/top/anime`,
-  upcoming: `${API_BASE_URL}/seasons/upcoming`,
-  recent: `${API_BASE_URL}/seasons/now`,
-  airing: `${API_BASE_URL}/top/anime?filter=airing`,
-};
-
 export default function Home() {
   const [animeList, setAnimeList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -22,6 +13,18 @@ export default function Home() {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [successMessage, setSuccessMessage] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
+  const [searchedAnime, setSearchedAnime] = useState("");
+
+  // Move ANIME_ENDPOINTS inside component to access searchedAnime state
+  const ANIME_ENDPOINTS = {
+    recommended: `${API_BASE_URL}/recommendations/anime`,
+    popular: `${API_BASE_URL}/top/anime?filter=bypopularity`,
+    top: `${API_BASE_URL}/top/anime`,
+    upcoming: `${API_BASE_URL}/seasons/upcoming`,
+    recent: `${API_BASE_URL}/seasons/now`,
+    airing: `${API_BASE_URL}/top/anime?filter=airing`,
+    searchedAnime: `${API_BASE_URL}/anime?q=${searchedAnime}&order_by=popularity&sort=asc&sfw`,
+  };
 
   // Generic function to fetch anime list
   const fetchAnimeList = useCallback(async (endpoint, category) => {
@@ -72,6 +75,18 @@ export default function Home() {
   const getPopularAnimeList = () =>
     fetchAnimeList(ANIME_ENDPOINTS.popular, "popular");
   const getTopAnimeList = () => fetchAnimeList(ANIME_ENDPOINTS.top, "top");
+  const getSearchedAnimeList = () =>
+    fetchAnimeList(ANIME_ENDPOINTS.searchedAnime, "searched anime");
+
+  // Handle form submission
+  const handleSearchSubmit = (event) => {
+    event.preventDefault(); // Prevent default form submission
+    if (searchedAnime.trim()) {
+      getSearchedAnimeList();
+    } else {
+      setError("Please enter an anime name to search");
+    }
+  };
 
   // Store anime with better error handling and validation
   const storeAnimeById = async (animeId) => {
@@ -239,6 +254,40 @@ export default function Home() {
         ))}
       </div>
 
+      {/* Search Form */}
+      <form
+        className="mt-10 flex justify-center items-center"
+        onSubmit={handleSearchSubmit}
+      >
+        <input
+          onChange={(event) => setSearchedAnime(event.target.value)}
+          value={searchedAnime}
+          className="border border-gray-500 outline-0 text-gray-300 text-xl font-medium px-4 py-2 rounded-tl-[5px] rounded-bl-[5px] bg-transparent"
+          placeholder="Store searched anime..."
+          type="text"
+          disabled={loading}
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading || !searchedAnime.trim()}
+          className={`
+            border outline-0 border-gray-500 border-l-transparent px-4 py-2 text-xl rounded-tr-[5px] rounded-br-[5px]
+            ${
+              loading || !searchedAnime.trim()
+                ? "cursor-not-allowed opacity-50 bg-gray-600"
+                : "cursor-pointer bg-gray-500 hover:bg-gray-400"
+            }
+          `}
+        >
+          {loading && activeCategory === "searched anime" ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Submit"
+          )}
+        </button>
+      </form>
+
       {/* Progress Bar */}
       {progress.total > 0 && (
         <div className="w-full max-w-md">
@@ -276,9 +325,10 @@ export default function Home() {
       {/* Instructions */}
       <div className="text-center text-gray-400 text-sm max-w-2xl">
         <p>
-          Select a category to load anime data from the Jikan API. The system
-          will automatically store each anime in your database with a 1-second
-          delay between requests to respect rate limits.
+          Select a category to load anime data from the Jikan API, or search for
+          specific anime using the search form. The system will automatically
+          store each anime in your database with a 1-second delay between
+          requests to respect rate limits.
         </p>
       </div>
     </div>
