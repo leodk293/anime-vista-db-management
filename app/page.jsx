@@ -2,7 +2,6 @@
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 
-// Constants
 const API_BASE_URL = "https://api.jikan.moe/v4";
 const API_DELAY = 1000; // 1 second delay between requests
 
@@ -15,7 +14,9 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState("");
   const [searchedAnime, setSearchedAnime] = useState("");
 
-  // Move ANIME_ENDPOINTS inside component to access searchedAnime state
+  const [searchResults, setSearchResults] = useState([]);
+  const [showResults, setShowResults] = useState(false);
+
   const ANIME_ENDPOINTS = {
     recommended: `${API_BASE_URL}/recommendations/anime`,
     popular: `${API_BASE_URL}/top/anime?filter=bypopularity`,
@@ -43,13 +44,24 @@ export default function Home() {
 
       const data = await response.json();
 
-      let animeIds;
+      let animeIds,
+        animeData = [];
       if (category === "recommended") {
-        // Handle recommended anime structure
         const animeEntries = data.data.flatMap((item) => item.entry);
         animeIds = animeEntries.map((entry) => entry.mal_id);
+      } else if (category === "searched anime") {
+        // For search results, store both IDs and display data
+        animeIds = data.data.map((item) => item.mal_id);
+        animeData = data.data.map((item) => ({
+          mal_id: item.mal_id,
+          title: item.title,
+          image_url: item.images?.jpg?.large_image_url || "",
+          score: item.score,
+          year: item.aired?.prop?.from?.year || "N/A",
+        }));
+        setSearchResults(animeData);
+        setShowResults(true);
       } else {
-        // Handle other anime list structures
         animeIds = data.data.map((item) => item.mal_id);
       }
 
@@ -331,6 +343,41 @@ export default function Home() {
           requests to respect rate limits.
         </p>
       </div>
+
+      {/* Search Results Display */}
+      {showResults && searchResults.length > 0 && (
+        <div className="w-full max-w-4xl mt-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold text-white">
+              Search Results for "{searchedAnime}"
+            </h2>
+            <button
+              onClick={() => setShowResults(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              ✕ Close
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {searchResults.map((anime) => (
+              <div
+                key={anime.mal_id}
+                className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-gray-500 transition-colors"
+              >
+                <div className="p-4">
+                  <h3 className="font-semibold text-white text-lg mb-2 line-clamp-2">
+                    {anime.title}
+                  </h3>
+                  <div className="flex justify-between text-sm text-gray-400">
+                    <span>Year: {anime.year}</span>
+                    {anime.score && <span>Score: {anime.score}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
