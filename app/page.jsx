@@ -1,8 +1,9 @@
 "use client";
+import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 
 const API_BASE_URL = "https://api.jikan.moe/v4";
-const API_DELAY = 1000;
+const API_DELAY = 1500;
 
 export default function Home() {
   const [animeList, setAnimeList] = useState([]);
@@ -15,9 +16,7 @@ export default function Home() {
 
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
-  const [userId, setUserId] = useState("");
 
-  // Fixed: Using function to generate search endpoint dynamically
   const ANIME_ENDPOINTS = {
     recommended: `${API_BASE_URL}/recommendations/anime`,
     popular: `${API_BASE_URL}/top/anime?filter=bypopularity`,
@@ -25,10 +24,7 @@ export default function Home() {
     upcoming: `${API_BASE_URL}/seasons/upcoming`,
     recent: `${API_BASE_URL}/seasons/now`,
     airing: `${API_BASE_URL}/top/anime?filter=airing`,
-    getSearchEndpoint: (query) =>
-      `${API_BASE_URL}/anime?q=${encodeURIComponent(
-        query
-      )}&order_by=popularity&sort=asc&sfw=true`,
+    searchedAnime: `${API_BASE_URL}/anime?q=${searchedAnime}&order_by=popularity&sort=asc&sfw`,
   };
 
   // Generic function to fetch anime list
@@ -54,10 +50,9 @@ export default function Home() {
         const animeEntries = data.data.flatMap((item) => item.entry);
         animeIds = animeEntries.map((entry) => entry.mal_id);
       } else if (category === "searched anime") {
-        // Fixed: Limit to top 25 results instead of processing all
-        const limitedData = data.data.slice(0, 25);
-        animeIds = limitedData.map((item) => item.mal_id);
-        animeData = limitedData.map((item) => ({
+        // For search results, store both IDs and display data
+        animeIds = data.data.map((item) => item.mal_id);
+        animeData = data.data.map((item) => ({
           mal_id: item.mal_id,
           title: item.title,
           image_url: item.images?.jpg?.large_image_url || "",
@@ -80,52 +75,6 @@ export default function Home() {
     }
   }, []);
 
-  async function fetchWatchListAnime(userId) {
-    setLoading(true);
-    setError(null);
-    setSuccessMessage("");
-    setActiveCategory("watchlist");
-    setProgress({ current: 0, total: 0 });
-
-    try {
-      const res = await fetch(
-        `https://anime-vista.netlify.app/api/watch-list?userId=${userId}`
-      );
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const result = await res.json();
-
-      let animeIds = [];
-
-      if (result.data && Array.isArray(result.data)) {
-        animeIds = result.data
-          .map((item) => item.animeId)
-          .filter((id) => id != null && id !== "");
-      } else if (Array.isArray(result)) {
-        animeIds = result
-          .map((item) => item.animeId)
-          .filter((id) => id != null && id !== "");
-      }
-
-      if (animeIds.length === 0) {
-        throw new Error(
-          "No anime found in watchlist or invalid response structure"
-        );
-      }
-
-      setAnimeList(animeIds);
-      setSuccessMessage(`Loaded ${animeIds.length} anime from watchlist`);
-    } catch (error) {
-      setError(`Failed to load watchlist anime: ${error.message}`);
-      console.error("Error fetching watchlist anime:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // Individual fetch functions
   const getRecommendedAnimeList = () =>
     fetchAnimeList(ANIME_ENDPOINTS.recommended, "recommended");
@@ -138,29 +87,16 @@ export default function Home() {
   const getPopularAnimeList = () =>
     fetchAnimeList(ANIME_ENDPOINTS.popular, "popular");
   const getTopAnimeList = () => fetchAnimeList(ANIME_ENDPOINTS.top, "top");
-
-  // Fixed: Use function to generate endpoint with current searchedAnime value
   const getSearchedAnimeList = () =>
-    fetchAnimeList(
-      ANIME_ENDPOINTS.getSearchEndpoint(searchedAnime),
-      "searched anime"
-    );
+    fetchAnimeList(ANIME_ENDPOINTS.searchedAnime, "searched anime");
 
-  // Handle search submission
-  const handleSearchSubmit = () => {
+  // Handle form submission
+  const handleSearchSubmit = (event) => {
+    event.preventDefault(); // Prevent default form submission
     if (searchedAnime.trim()) {
       getSearchedAnimeList();
     } else {
       setError("Please enter an anime name to search");
-    }
-  };
-
-  // Handle watchlist submission
-  const handleWatchlistSubmit = () => {
-    if (userId.trim()) {
-      fetchWatchListAnime(userId.trim());
-    } else {
-      setError("Please enter a user ID");
     }
   };
 
@@ -330,19 +266,22 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Search Input */}
-      <div className="mt-10 flex justify-center items-center">
+      {/* Search Form */}
+      <form
+        className="text-white flex flex-row"
+        onSubmit={handleSearchSubmit}
+      >
         <input
           onChange={(event) => setSearchedAnime(event.target.value)}
           value={searchedAnime}
-          onKeyPress={(e) => e.key === "Enter" && handleSearchSubmit()}
           className="border border-gray-500 outline-0 text-gray-300 text-xl font-medium px-4 py-2 rounded-tl-[5px] rounded-bl-[5px] bg-transparent"
-          placeholder="Store searched anime..."
           type="text"
+          placeholder="Search for anime..."
           disabled={loading}
+          required
         />
         <button
-          onClick={handleSearchSubmit}
+          type="submit"
           disabled={loading || !searchedAnime.trim()}
           className={`
             border outline-0 border-gray-500 border-l-transparent px-4 py-2 text-xl rounded-tr-[5px] rounded-br-[5px]
@@ -359,38 +298,7 @@ export default function Home() {
             "Submit"
           )}
         </button>
-      </div>
-
-      {/* Watchlist Input */}
-      <div className="text-white flex flex-row">
-        <input
-          onChange={(event) => setUserId(event.target.value)}
-          value={userId}
-          onKeyPress={(e) => e.key === "Enter" && handleWatchlistSubmit()}
-          className="border border-gray-500 outline-0 text-gray-300 text-xl font-medium px-4 py-2 rounded-tl-[5px] rounded-bl-[5px] bg-transparent"
-          type="text"
-          placeholder="Enter user ID to load watchlist"
-          disabled={loading}
-        />
-        <button
-          onClick={handleWatchlistSubmit}
-          disabled={loading || !userId.trim()}
-          className={`
-            border outline-0 border-gray-500 border-l-transparent px-4 py-2 text-xl rounded-tr-[5px] rounded-br-[5px]
-            ${
-              loading || !userId.trim()
-                ? "cursor-not-allowed opacity-50 bg-gray-600"
-                : "cursor-pointer bg-gray-500 hover:bg-gray-400"
-            }
-          `}
-        >
-          {loading && activeCategory === "watchlist" ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-            "Submit"
-          )}
-        </button>
-      </div>
+      </form>
 
       {/* Progress Bar */}
       {progress.total > 0 && (
