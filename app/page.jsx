@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const API_BASE_URL = "https://api.jikan.moe/v4";
-const API_DELAY = 3000;
+const API_DELAY = 1000;
 
 export default function Home() {
   const [animeList, setAnimeList] = useState([]);
