@@ -16,6 +16,7 @@ export default function Home() {
 
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
+  const [deleteAnimeId, setDeleteAnimeId] = useState("");
 
   const ANIME_ENDPOINTS = {
     recommended: `${API_BASE_URL}/recommendations/anime`,
@@ -74,6 +75,46 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
+
+  async function deleteAnime(animeId) {
+    if (!animeId || !animeId.trim()) {
+      setError("Please enter an anime ID");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccessMessage("");
+
+    try {
+      const response = await fetch("/api/delete-anime", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ animeId: animeId.trim() }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete anime");
+      }
+
+      const result = await response.json();
+      setSuccessMessage(result.message || "Anime deleted successfully");
+      setDeleteAnimeId(""); // Clear the input
+    } catch (error) {
+      setError(error.message || "Failed to delete anime");
+      console.error("Error deleting anime:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleDeleteSubmit = (event) => {
+    event.preventDefault();
+    deleteAnime(deleteAnimeId);
+  };
 
   // Individual fetch functions
   const getRecommendedAnimeList = () =>
@@ -267,10 +308,7 @@ export default function Home() {
       </div>
 
       {/* Search Form */}
-      <form
-        className="text-white flex flex-row"
-        onSubmit={handleSearchSubmit}
-      >
+      <form className="text-white flex flex-row" onSubmit={handleSearchSubmit}>
         <input
           onChange={(event) => setSearchedAnime(event.target.value)}
           value={searchedAnime}
@@ -296,6 +334,39 @@ export default function Home() {
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
           ) : (
             "Submit"
+          )}
+        </button>
+      </form>
+
+      <div className=" border border-transparent w-[50%] p-1 rounded-full bg-gray-800" />
+
+      {/* Delete Anime Form */}
+      <form className="text-white flex flex-row" onSubmit={handleDeleteSubmit}>
+        <input
+          onChange={(event) => setDeleteAnimeId(event.target.value)}
+          value={deleteAnimeId}
+          className="border border-gray-500 outline-0 text-gray-300 text-xl font-medium px-4 py-2 rounded-tl-[5px] rounded-bl-[5px] bg-transparent"
+          type="text"
+          placeholder="Enter anime ID to delete..."
+          disabled={loading}
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading || !deleteAnimeId.trim()}
+          className={`
+            border outline-0 border-gray-500 border-l-transparent px-4 py-2 text-xl rounded-tr-[5px] rounded-br-[5px]
+            ${
+              loading || !deleteAnimeId.trim()
+                ? "cursor-not-allowed opacity-50 bg-gray-600"
+                : "cursor-pointer bg-red-600 hover:bg-red-500"
+            }
+          `}
+        >
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Delete"
           )}
         </button>
       </form>
